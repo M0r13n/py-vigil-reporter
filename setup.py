@@ -20,7 +20,7 @@ setup(
     long_description=readme,
     author='Leon Morten Richter',
     author_email='leon.morten@gmail.com',
-    url='TODO',
+    url='https://github.com/M0r13n/py-vigil-reporter',
     license=license,
     packages=find_packages(exclude=('tests', 'docs'))
 )

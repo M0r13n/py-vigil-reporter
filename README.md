@@ -2,6 +2,20 @@
 
 #### Vigil Reporter for Python. Used in pair with [Vigil](https://github.com/valeriansaliou/vigil), the Microservices Status Page.
 
+
+## Who uses it?
+
+<table>
+<tr>
+<td align="center"><a href="https://smartphoniker.shop/"><img src="https://smartphoniker.shop/static/images/smartphoniker-logo.svg" height="64" /></a></td>
+</tr>
+<tr>
+<td align="center">Crisp</td>
+</tr>
+</table>
+
+
+
 # How to install
 Install with pip:
 
