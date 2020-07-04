@@ -40,6 +40,7 @@ SAMPLE_CONFIG = {
 }
 reporter = VigilReporter.from_config(SAMPLE_CONFIG)
 reporter.start_reporting()
+print("You can continue with your normal work here!")
 ```
 
 This module uses the `threading.Timer` class from the `threading` module to run reporting in background. 
