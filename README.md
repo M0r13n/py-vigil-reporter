@@ -10,7 +10,7 @@
 <td align="center"><a href="https://smartphoniker.shop/"><img src="https://smartphoniker.shop/static/images/smartphoniker-logo.svg" height="64" /></a></td>
 </tr>
 <tr>
-<td align="center">Crisp</td>
+<td align="center">Smartphoniker</td>
 </tr>
 </table>
 
