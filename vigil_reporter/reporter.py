@@ -5,11 +5,11 @@ Copyright 2020, Leon Morten Richter
 Author: Leon Morten Richter <leon.morten@gmail.com>
 """
 
-import psutil
-import requests
 import threading
 import typing
 
+import psutil
+import requests
 from requests.sessions import InvalidSchema
 
 
@@ -22,7 +22,6 @@ def get_memory_usage() -> float:
 
 
 class VigilReporter(object):
-
     __slots__ = (
         'url',
         'token',

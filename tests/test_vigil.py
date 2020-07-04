@@ -1,7 +1,9 @@
-from requests.models import Response
-import reporter.reporter as r
-from reporter.reporter import VigilReporter
 import unittest
+
+from requests.models import Response
+
+import vigil_reporter.reporter as r
+from vigil_reporter.reporter import VigilReporter
 
 SAMPLE_CONFIG = {
     "url": "http://localhost:8080",
@@ -42,7 +44,7 @@ class VigilTestSuite(unittest.TestCase):
 
     def test_init_raise_error_if_none(self):
         # make sure all values are set when instantiating VigilReporter
-        args = ("ABC", ) * 5
+        args = ("ABC",) * 5
         self.assertRaises(ValueError, lambda: VigilReporter(*args, None))
 
     def test_url(self):

@@ -29,14 +29,13 @@ $ pip install py-vigil-reporter
 
 ```py
 SAMPLE_CONFIG = {
-    "url": "http://localhost:8080",
-    "token": "SOME_TOKEN",
-    "probe_id": "web",
-    "node_id": "web-node",
-    "replica_id": "192.168.1.103",
-    "interval": 10
+"url": "http://localhost:8080",
+"token": "SOME_TOKEN",
+"probe_id": "web",
+"node_id": "web-node",
+"replica_id": "192.168.1.103",
+"interval": 10
 }
-
 reporter = VigilReporter.from_config(SAMPLE_CONFIG)
 reporter.start_reporting()
 ```
