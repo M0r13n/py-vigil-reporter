@@ -1,4 +1,5 @@
 # py-vigil-reporter
+[![codecov](https://codecov.io/gh/M0r13n/py-vigil-reporter/branch/master/graph/badge.svg)](https://codecov.io/gh/M0r13n/py-vigil-reporter)
 
 #### Vigil Reporter for Python. Used in pair with [Vigil](https://github.com/valeriansaliou/vigil), the Microservices Status Page.
 
