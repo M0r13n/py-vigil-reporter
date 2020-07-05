@@ -1,4 +1,6 @@
 # py-vigil-reporter
+[![PyPI](https://img.shields.io/pypi/v/py-vigil-reporter)](https://pypi.org/project/py-vigil-reporter/)
+[![license](https://img.shields.io/pypi/l/py-vigil-reporter)](https://github.com/M0r13n/py-vigil-reporter/blob/master/LICENSE)
 [![codecov](https://codecov.io/gh/M0r13n/py-vigil-reporter/branch/master/graph/badge.svg)](https://codecov.io/gh/M0r13n/py-vigil-reporter)
 [![downloads](https://img.shields.io/pypi/dm/py-vigil-reporter)](https://pypi.org/project/py-vigil-reporter/)
 
