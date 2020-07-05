@@ -1,9 +1,10 @@
+from threading import current_thread
 import unittest
 
 from requests.models import Response
 
 import vigil_reporter.reporter as r
-from vigil_reporter.reporter import VigilReporter
+from vigil_reporter.reporter import VigilReporter, get_current_system_load
 
 SAMPLE_CONFIG = {
     "url": "http://localhost:8080",
@@ -52,14 +53,15 @@ class VigilTestSuite(unittest.TestCase):
         endpoint_url = reporter.endpoint_url
         assert endpoint_url == "http://localhost:8080/reporter/web/web-node/"
 
-    def test_data(self):
-        r.get_cpu_usage = lambda: 0.55
-        r.get_memory_usage = lambda: 0.12
+    def test_current_load(self):
+        current_load = get_current_system_load()
+        assert 0.0 <= current_load["cpu"] <= 1.0
+        assert 0.0 <= current_load["mem"] <= 1.0
 
+    def test_data(self):
         reporter = VigilReporter.from_config(SAMPLE_CONFIG)
-        data = reporter.build_request_data()
+        data = reporter.build_report_payload(0.55, 0.12)
         assert isinstance(data, dict)
-        print(data)
         expected = {
             "replica": SAMPLE_CONFIG["replica_id"],
             "interval": SAMPLE_CONFIG["interval"],
@@ -87,7 +89,7 @@ class VigilTestSuite(unittest.TestCase):
         always_true_response.status_code = 200
         r.VigilReporter.post_data = lambda x, y: always_true_response
         reporter = VigilReporter.from_config(SAMPLE_CONFIG)
-        assert reporter.report()
+        assert reporter.send_single_report()
         r.VigilReporter.post_data = _original_function
 
     def test_report_post_400_err(self):
@@ -96,7 +98,14 @@ class VigilTestSuite(unittest.TestCase):
         fail_response.status_code = 403
         r.VigilReporter.post_data = lambda x, y: fail_response
         reporter = VigilReporter.from_config(SAMPLE_CONFIG)
-        self.assertRaises(ValueError, lambda: reporter.report())
+        self.assertRaises(ValueError, lambda: reporter.send_single_report())
+        r.VigilReporter.post_data = _original_function
+
+    def test_send_report_with_connection_err(self):
+        _original_function = r.VigilReporter.post_data
+        r.VigilReporter.post_data = lambda x, y: None
+        reporter = VigilReporter.from_config(SAMPLE_CONFIG)
+        assert not reporter.send_single_report()
         r.VigilReporter.post_data = _original_function
 
 

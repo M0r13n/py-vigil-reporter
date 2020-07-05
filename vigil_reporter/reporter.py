@@ -30,6 +30,16 @@ def get_memory_usage() -> float:
     return round(psutil.virtual_memory().percent / 100.0, 2)
 
 
+def get_current_system_load() -> typing.Dict[str, float]:
+    """
+    Get current load stats: Memory and CPU usage
+    """
+    return dict(
+        cpu=get_cpu_usage(),
+        mem=get_memory_usage()
+    )
+
+
 class VigilReporter(object):
     __slots__ = (
         'url',
@@ -99,16 +109,15 @@ class VigilReporter(object):
         except InvalidSchema as e:
             raise ValueError("Invalid URL schema! Make sure that you provide a valid url, that starts with http://") from e
         except requests.exceptions.ConnectionError:
-            # this might happen for various reasons and SHOULD NOT kill the service permanently.
+            # Could not connect to Vigil. Possible reasons are: Network down, DNS down, Vigil down, Vigil busy, etc.
+            # This error is considered recoverable. So VigilReporter should just try it again.
             logger.warning("%s is currently unreachable!" % self.endpoint_url)
             return None
 
-    def build_request_data(self) -> typing.Dict:
+    def build_report_payload(self, cpu: float, mem: float) -> typing.Dict:
         """
         Construct the probe object as a dict that will be send to Vigil.
         """
-        cpu = get_cpu_usage()
-        mem = get_memory_usage()
         data = {
             "replica": self.replica_id,
             "interval": self.interval,
@@ -119,32 +128,39 @@ class VigilReporter(object):
         }
         return data
 
-    def report(self) -> bool:
-        data = self.build_request_data()
-        response = self.post_data(data)
+    def send_single_report(self) -> bool:
+        """
+        Send a single report probe to Vigil.
+        Returns True if Vigil accepted the payload (returned a 2XX status code).
+        Returns False otherwise.
+        """
+        load_data = get_current_system_load()
+        payload = self.build_report_payload(**load_data)
+        response = self.post_data(payload)
         try:
-            if response.status_code == 200:
+            if 200 <= response.status_code < 300:
                 return True
             else:
-                raise ValueError("Server responded with: %s : %s\nGiving up permanently." % (response.status_code, response.text))
+                # Vigil responded, but status code was something bigger than 2XX
+                raise ValueError("Server responded with code %s \nPlease check your config." % (response.status_code))
         except AttributeError:
-            # response was most likely None
+            # response was None
             return False
 
     def report_in_thread(self) -> None:
         """
-        Send a report Probe.
-        Afterwards create a new Timer that will be executed in interval seconds.
+        Sends a single report probe to Vigil and 
+        afterwards creates a new Timer for this function that will be executed in *interval* seconds.
         See: https://stackoverflow.com/questions/8600161/executing-periodic-actions-in-python
         """
-        self.report()
-        interval = self.interval
-        threading.Timer(interval, self.report_in_thread).start()
+        self.send_single_report()
+        threading.Timer(self.interval, self.report_in_thread).start()
 
     def start_reporting(self) -> None:
         """
         Start periodic reporting in background.
 
-        If an excpetion is raised on first call, the main thread will be terminated.
+        If an excpetion is raised on first call, the main thread will be interrupted.
+        This is intentional, because this means, that your config parameters are most likely malformed.
         """
         self.report_in_thread()
