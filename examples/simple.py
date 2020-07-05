@@ -1,3 +1,10 @@
+"""
+py-vigil-reporter
+
+Copyright 2020, Leon Morten Richter
+Author: Leon Morten Richter <leon.morten@gmail.com>
+"""
+
 from vigil_reporter.reporter import VigilReporter
 
 if __name__ == "__main__":

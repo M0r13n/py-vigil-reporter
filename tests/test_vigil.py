@@ -1,4 +1,10 @@
-from threading import current_thread
+"""
+py-vigil-reporter
+
+Copyright 2020, Leon Morten Richter
+Author: Leon Morten Richter <leon.morten@gmail.com>
+"""
+
 import unittest
 
 from requests.models import Response

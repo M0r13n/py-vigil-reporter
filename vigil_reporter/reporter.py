@@ -149,7 +149,7 @@ class VigilReporter(object):
 
     def report_in_thread(self) -> None:
         """
-        Sends a single report probe to Vigil and 
+        Sends a single report probe to Vigil and
         afterwards creates a new Timer for this function that will be executed in *interval* seconds.
         See: https://stackoverflow.com/questions/8600161/executing-periodic-actions-in-python
         """
