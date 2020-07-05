@@ -82,37 +82,52 @@ class VigilTestSuite(unittest.TestCase):
         url = "localhost:8080"
         reporter = VigilReporter.from_config(SAMPLE_CONFIG)
         reporter.url = url
-        self.assertRaises(ValueError, lambda: reporter.post_data({}))
+        self.assertRaises(ValueError, lambda: reporter._post_data({}))
 
     def test_unreachable(self):
         reporter = VigilReporter.from_config(SAMPLE_CONFIG)
         reporter.url = "http://blibblablub.com"
-        assert reporter.post_data({}) is None
+        assert reporter._post_data({}) is None
 
     def test_report(self):
-        _original_function = r.VigilReporter.post_data
+        _original_function = r.VigilReporter._post_data
         always_true_response = Response()
         always_true_response.status_code = 200
-        r.VigilReporter.post_data = lambda x, y: always_true_response
+        r.VigilReporter._post_data = lambda x, y: always_true_response
         reporter = VigilReporter.from_config(SAMPLE_CONFIG)
         assert reporter.send_single_report()
-        r.VigilReporter.post_data = _original_function
+        r.VigilReporter._post_data = _original_function
 
     def test_report_post_400_err(self):
-        _original_function = r.VigilReporter.post_data
+        _original_function = r.VigilReporter._post_data
         fail_response = Response()
         fail_response.status_code = 403
-        r.VigilReporter.post_data = lambda x, y: fail_response
+        r.VigilReporter._post_data = lambda x, y: fail_response
         reporter = VigilReporter.from_config(SAMPLE_CONFIG)
         self.assertRaises(ValueError, lambda: reporter.send_single_report())
-        r.VigilReporter.post_data = _original_function
+        r.VigilReporter._post_data = _original_function
 
     def test_send_report_with_connection_err(self):
-        _original_function = r.VigilReporter.post_data
-        r.VigilReporter.post_data = lambda x, y: None
+        _original_function = r.VigilReporter._post_data
+        r.VigilReporter._post_data = lambda x, y: None
         reporter = VigilReporter.from_config(SAMPLE_CONFIG)
         assert not reporter.send_single_report()
-        r.VigilReporter.post_data = _original_function
+        r.VigilReporter._post_data = _original_function
+
+    def test_response_handler(self):
+        reporter = VigilReporter.from_config(SAMPLE_CONFIG)
+        mock_response = Response()
+        mock_response.status_code = 200
+        assert reporter._handle_vigil_response(mock_response)
+
+        mock_response.status_code = 201
+        assert reporter._handle_vigil_response(mock_response)
+
+        mock_response.status_code = 301
+        self.assertRaises(ValueError, lambda: reporter._handle_vigil_response(mock_response))
+
+        mock_response.status_code = 400
+        self.assertRaises(ValueError, lambda: reporter._handle_vigil_response(mock_response))
 
 
 if __name__ == "__main__":

@@ -17,23 +17,14 @@ logger = logging.getLogger(__name__)
 
 
 def get_cpu_usage() -> float:
-    """
-    Get total CPU usage
-    """
     return round(psutil.cpu_percent(interval=None, percpu=False) / 100.0, 2)
 
 
 def get_memory_usage() -> float:
-    """
-    Get total memory usage
-    """
     return round(psutil.virtual_memory().percent / 100.0, 2)
 
 
 def get_current_system_load() -> typing.Dict[str, float]:
-    """
-    Get current load stats: Memory and CPU usage
-    """
     return dict(
         cpu=get_cpu_usage(),
         mem=get_memory_usage()
@@ -66,7 +57,7 @@ class VigilReporter(object):
         self.replica_id = replica_id
         self.interval = interval
 
-        # assert that all values are set
+        # prevent important values from beeing None
         for slot in self.__slots__:
             if getattr(self, slot) is None:
                 raise ValueError("%s must not be None!" % slot)
@@ -93,18 +84,28 @@ class VigilReporter(object):
         url = "%s/reporter/%s/%s/" % (self.url, self.probe_id, self.node_id)
         return url
 
-    def post_data(self, data: typing.Dict) -> typing.Optional[requests.Response]:
+    def _handle_vigil_response(self, response: requests.Response) -> bool:
+        if 200 <= response.status_code < 300:
+            return True
+        else:
+            # Vigil responded, but status code was something bigger than 2XX
+            # This error is not considered recoverable
+            raise ValueError("Server responded with code %s \nPlease check your config." % (response.status_code))
+
+    def _make_request(self, data: typing.Dict) -> requests.Response:
+        return requests.post(
+            url=self.endpoint_url,
+            auth=('Authorization', self.token),
+            json=data,
+        )
+
+    def _post_data(self, data: typing.Dict) -> typing.Optional[requests.Response]:
         """
         Post the probe data and returns the requests.Response object on success.
-
         Connection errors are ignored because they are considered self recoverable.
         """
         try:
-            response = requests.post(
-                url=self.endpoint_url,
-                auth=('Authorization', self.token),
-                json=data,
-            )
+            response = self._make_request(data)
             return response
         except InvalidSchema as e:
             raise ValueError("Invalid URL schema! Make sure that you provide a valid url, that starts with http://") from e
@@ -115,9 +116,6 @@ class VigilReporter(object):
             return None
 
     def build_report_payload(self, cpu: float, mem: float) -> typing.Dict:
-        """
-        Construct the probe object as a dict that will be send to Vigil.
-        """
         data = {
             "replica": self.replica_id,
             "interval": self.interval,
@@ -130,27 +128,20 @@ class VigilReporter(object):
 
     def send_single_report(self) -> bool:
         """
-        Send a single report probe to Vigil.
         Returns True if Vigil accepted the payload (returned a 2XX status code).
-        Returns False otherwise.
+        Returns False if vigil could not be reached (temporary  error)
+        An excpetion is raised if Vigil did not accept the payload
         """
         load_data = get_current_system_load()
         payload = self.build_report_payload(**load_data)
-        response = self.post_data(payload)
-        try:
-            if 200 <= response.status_code < 300:
-                return True
-            else:
-                # Vigil responded, but status code was something bigger than 2XX
-                raise ValueError("Server responded with code %s \nPlease check your config." % (response.status_code))
-        except AttributeError:
-            # response was None
-            return False
+        response = self._post_data(payload)
+        if response is not None:
+            return self._handle_vigil_response(response)
+        return False
 
     def report_in_thread(self) -> None:
         """
-        Sends a single report probe to Vigil and
-        afterwards creates a new Timer for this function that will be executed in *interval* seconds.
+        Sends a single report probe to Vigil and afterwards creates a new Timer for this function that will be executed in *interval* seconds.
         See: https://stackoverflow.com/questions/8600161/executing-periodic-actions-in-python
         """
         self.send_single_report()

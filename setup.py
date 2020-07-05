@@ -7,7 +7,7 @@ Author: Leon Morten Richter <leon.morten@gmail.com>
 import os
 from setuptools import setup, find_packages
 
-with open('README.md') as f:
+with open('README.md', 'r', encoding='utf-8') as f:
     readme = f.read()
 
 # Can't use 'from vigil_reporter import __version__' because
