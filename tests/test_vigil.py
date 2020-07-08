@@ -5,12 +5,13 @@ Copyright 2020, Leon Morten Richter
 Author: Leon Morten Richter <leon.morten@gmail.com>
 """
 
+import time
 import unittest
 
 from requests.models import Response
 
 import vigil_reporter.reporter as r
-from vigil_reporter.reporter import VigilReporter, get_current_system_load
+from vigil_reporter.reporter import RequestFailedError, VigilReporter, get_current_system_load
 
 SAMPLE_CONFIG = {
     "url": "http://localhost:8080",
@@ -18,7 +19,7 @@ SAMPLE_CONFIG = {
     "probe_id": "web",
     "node_id": "web-node",
     "replica_id": "192.168.1.103",
-    "interval": 10
+    "interval": 1
 }
 
 
@@ -86,7 +87,7 @@ class VigilTestSuite(unittest.TestCase):
 
     def test_unreachable(self):
         reporter = VigilReporter.from_config(SAMPLE_CONFIG)
-        reporter.url = "http://blibblablub.com"
+        reporter.url = "http://blibblablubbbb.com"
         assert reporter._post_data({}) is None
 
     def test_report(self):
@@ -104,7 +105,7 @@ class VigilTestSuite(unittest.TestCase):
         fail_response.status_code = 403
         r.VigilReporter._post_data = lambda x, y: fail_response
         reporter = VigilReporter.from_config(SAMPLE_CONFIG)
-        self.assertRaises(ValueError, lambda: reporter.send_single_report())
+        self.assertRaises(RequestFailedError, lambda: reporter.send_single_report())
         r.VigilReporter._post_data = _original_function
 
     def test_send_report_with_connection_err(self):
@@ -121,13 +122,59 @@ class VigilTestSuite(unittest.TestCase):
         assert reporter._handle_vigil_response(mock_response)
 
         mock_response.status_code = 201
-        assert reporter._handle_vigil_response(mock_response)
+        assert not reporter._handle_vigil_response(mock_response)
 
         mock_response.status_code = 301
-        self.assertRaises(ValueError, lambda: reporter._handle_vigil_response(mock_response))
+        assert not reporter._handle_vigil_response(mock_response)
 
         mock_response.status_code = 400
-        self.assertRaises(ValueError, lambda: reporter._handle_vigil_response(mock_response))
+        self.assertRaises(RequestFailedError, lambda: reporter._handle_vigil_response(mock_response))
+
+        mock_response.status_code = 401
+        self.assertRaises(RequestFailedError, lambda: reporter._handle_vigil_response(mock_response))
+
+        mock_response.status_code = 404
+        self.assertRaises(RequestFailedError, lambda: reporter._handle_vigil_response(mock_response))
+
+    def test_stop_method(self):
+        reporter = VigilReporter.from_config(SAMPLE_CONFIG)
+        assert not reporter._stop
+
+        reporter.stop()
+        assert reporter._stop
+
+    def test_thread(self):
+        _original_function = r.VigilReporter._post_data
+        always_true_response = Response()
+        always_true_response.status_code = 200
+        success_flag = [False, ]
+
+        def return_true_and_set_flag(*args, success_flag=success_flag, **kwargs):
+            success_flag[0] = True
+            return always_true_response
+
+        r.VigilReporter._post_data = return_true_and_set_flag
+
+        reporter = VigilReporter.from_config(SAMPLE_CONFIG)
+        reporter.interval = 0.1
+        reporter.start_reporting()
+        time.sleep(0.5)
+        reporter.stop()
+        assert reporter._stop
+        assert all(success_flag)
+        r.VigilReporter._post_data = _original_function
+
+    def test_handle_unexpected_errors(self):
+        _original_function = r.VigilReporter._post_data
+
+        def error(*args, **kwargs):
+            raise ValueError("Blaa")
+
+        r.VigilReporter._post_data = error
+        reporter = VigilReporter.from_config(SAMPLE_CONFIG)
+        reporter.stop()
+        assert not reporter.report_in_thread()
+        r.VigilReporter._post_data = _original_function
 
 
 if __name__ == "__main__":

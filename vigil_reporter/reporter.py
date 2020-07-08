@@ -31,6 +31,10 @@ def get_current_system_load() -> typing.Dict[str, float]:
     )
 
 
+class RequestFailedError(Exception):
+    pass
+
+
 class VigilReporter(object):
     __slots__ = (
         'url',
@@ -38,7 +42,8 @@ class VigilReporter(object):
         'probe_id',
         'node_id',
         'replica_id',
-        'interval'
+        'interval',
+        '_stop'
     )
 
     def __init__(
@@ -48,14 +53,15 @@ class VigilReporter(object):
             probe_id: str,
             node_id: str,
             replica_id: str,
-            interval: float
+            interval: float,
     ) -> None:
-        self.url = url
-        self.token = token
-        self.probe_id = probe_id
-        self.node_id = node_id
-        self.replica_id = replica_id
-        self.interval = interval
+        self.url: str = url
+        self.token: str = token
+        self.probe_id: str = probe_id
+        self.node_id: str = node_id
+        self.replica_id: str = replica_id
+        self.interval: float = interval
+        self._stop: bool = False
 
         # prevent important values from beeing None
         for slot in self.__slots__:
@@ -84,13 +90,18 @@ class VigilReporter(object):
         url = "%s/reporter/%s/%s/" % (self.url, self.probe_id, self.node_id)
         return url
 
+    def stop(self):
+        """Stop reporting after next probe"""
+        self._stop = True
+
     def _handle_vigil_response(self, response: requests.Response) -> bool:
-        if 200 <= response.status_code < 300:
+        # Errors that are not recoverable, most likely due to a wrong config
+        if 400 <= response.status_code < 500:
+            raise RequestFailedError("Vigil responded with %i - Please check your config." % response.status_code)
+        if response.status_code == 200:
             return True
-        else:
-            # Vigil responded, but status code was something bigger than 2XX
-            # This error is not considered recoverable
-            raise ValueError("Server responded with code %s \nPlease check your config." % (response.status_code))
+        logger.error("Request FAILED: Vigil responded with %i" % response.status_code)
+        return False
 
     def _make_request(self, data: typing.Dict) -> requests.Response:
         return requests.post(
@@ -139,19 +150,26 @@ class VigilReporter(object):
             return self._handle_vigil_response(response)
         return False
 
-    def report_in_thread(self) -> None:
+    def report_in_thread(self) -> bool:
         """
         Sends a single report probe to Vigil and afterwards creates a new Timer for this function that will be executed in *interval* seconds.
         See: https://stackoverflow.com/questions/8600161/executing-periodic-actions-in-python
+
+        Call .stop() in order to stop execution.
         """
-        self.send_single_report()
-        threading.Timer(self.interval, self.report_in_thread).start()
+        try:
+            self.send_single_report()
+        except RequestFailedError as e:
+            raise e
+        except Exception as unexpected_error:
+            logger.error(unexpected_error)
+            return False
+        if not self._stop:
+            threading.Timer(self.interval, self.report_in_thread).start()
+        return True
 
     def start_reporting(self) -> None:
         """
         Start periodic reporting in background.
-
-        If an excpetion is raised on first call, the main thread will be interrupted.
-        This is intentional, because this means, that your config parameters are most likely malformed.
         """
         self.report_in_thread()
